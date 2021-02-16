@@ -26,7 +26,7 @@ namespace DataReaderFactory.Perf
         protected static DataReaderBuilder<int> Builder { get; } = new DataReaderBuilder<int> { x => x };
         protected static SqlMetaData[] _metaData = { new("id", SqlDbType.Int, false, true, SortOrder.Ascending, 0) };
 
-        [Params(100_000, 1_000_000)]
+        [Params(100_000, 1_000_000, 10_000_000)]
         public int Initial { get; set; }
 
         [GlobalSetup]
