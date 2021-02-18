@@ -1,8 +1,8 @@
-﻿using System.Linq;
-using System.Linq.Expressions;
-
-namespace DataReaderFactory
+﻿namespace DataReaderFactory
 {
+    using System.Linq;
+    using System.Linq.Expressions;
+
     internal sealed class ParameterReplacerVistor : ExpressionVisitor
     {
         private readonly ParameterExpression[] _paramExpressions;

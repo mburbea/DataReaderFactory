@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Data;
-using System.Data.Common;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace DataReaderFactory
+﻿namespace DataReaderFactory
 {
+    using System;
+    using System.Collections;
+    using System.Collections.Generic;
+    using System.Data;
+    using System.Data.Common;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     public sealed partial class DataReaderBuilder<T>
     {
         private sealed class DataReader : DbDataReader
@@ -19,12 +18,6 @@ namespace DataReaderFactory
             private readonly Action<object[], T, object> _populate;
             private DataReaderBuilder<T> _parent;
 
-            /// <summary>
-            /// Creates a new instance of the <see cref="DataReader" /> classes.
-            /// </summary>
-            /// <param name="schemaTable">The schema table.</param>
-            /// <param name="populateValues">The delegate to use to populate an array of values from the current item on the enumerator.</param>
-            /// <param name="enumerator">The enumerator of items.</param>
             public DataReader(DataReaderBuilder<T> parent, IAsyncEnumerator<T> asyncEnumerator, object state, int fieldCount, Action<object[], T, object> populate) =>
                 (_parent, _asyncEnumerator, _state, _array, _populate) = (parent, asyncEnumerator, state, new object[fieldCount], populate);
 
@@ -70,10 +63,7 @@ namespace DataReaderFactory
             public override char GetChar(int ordinal) => (char)_array[ordinal];
 
             public override long GetBytes(int ordinal, long dataOffset, byte[] buffer, int bufferOffset, int length) =>
-                GetSubsetOfT(_array[ordinal] switch{
-                byte[] bytes => new(bytes),
-                _ => new()
-                },(int)dataOffset, buffer, bufferOffset, length);
+                GetSubsetOfT(_array[ordinal] is byte[] bytes ? new(bytes) : new(), (int)dataOffset, buffer, bufferOffset, length);
 
             public override long GetChars(int ordinal, long dataOffset, char[] buffer, int bufferOffset, int length) =>
                 GetSubsetOfT(_array[ordinal] switch
@@ -83,7 +73,7 @@ namespace DataReaderFactory
                     _ => new()
                 }, (int)dataOffset, buffer, bufferOffset, length);
 
-            private long GetSubsetOfT<TArray>(ReadOnlySpan<TArray> sourceData, int offset, TArray[] buffer, int bufferOffset, int length)
+            private static int GetSubsetOfT<TArray>(ReadOnlySpan<TArray> sourceData, int offset, TArray[] buffer, int bufferOffset, int length)
             {
                 var available = sourceData.Length - offset;
                 if (available > 0)
@@ -103,9 +93,7 @@ namespace DataReaderFactory
 
             public override double GetDouble(int ordinal) => (double)_array[ordinal];
 
-            public override IEnumerator GetEnumerator() => new DbEnumerator(this, closeReader: true);
-
-            public override Type GetFieldType(int ordinal) => _array[ordinal]?.GetType() ?? (Type)GetSchemaTable().Rows[ordinal][SchemaTableColumn.DataType];
+            public override Type GetFieldType(int ordinal) => (Type)GetSchemaTable().Rows[ordinal][SchemaTableColumn.DataType];
 
             public override float GetFloat(int ordinal) => (float)_array[ordinal];
 
@@ -141,6 +129,7 @@ namespace DataReaderFactory
             }
 
             public override DataTable GetSchemaTable() => _parent.SchemaTable;
+            public override IEnumerator GetEnumerator() => new DbEnumerator(this, closeReader: true);
         }
     }
 }

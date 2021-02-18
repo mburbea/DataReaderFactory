@@ -21,6 +21,7 @@ namespace DataReaderFactory.Perf
 
     public class TvpVsBulk
     {
+
         private static readonly DisposableLocalDb LocalDb = new("TestDb");
         string ConnectionString => LocalDb.ConnectionString;
         protected static DataReaderBuilder<int> Builder { get; } = new DataReaderBuilder<int> { x => x };
@@ -44,27 +45,28 @@ namespace DataReaderFactory.Perf
             Builder.CreateReader(Array.Empty<int>()).Read();
         }
 
-        [Benchmark]
-        public async Task<int> CsvAsync()
-        {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var cmd = new SqlCommand("select count(*) from ids where id in (select convert(int,value) from string_split(@tvp,','))", conn);
-            var parameter = cmd.Parameters.AddWithValue("@tvp", string.Join(',', Enumerable.Range(Initial, 10_000)));
-            parameter.SqlDbType = SqlDbType.VarChar;
-            parameter.Size = -1;
-            return (int)await cmd.ExecuteScalarAsync().ConfigureAwait(false);
-        }
+        //[Benchmark]
+        //public async Task<int> CsvAsync()
+        //{
+        //    using var conn = new SqlConnection(ConnectionString);
+        //    conn.Open();
+        //    using var cmd = new SqlCommand("select count(*) from string_split(@tvp,',')", conn);
+        //    var parameter = cmd.Parameters.AddWithValue("@tvp", string.Join(',', Enumerable.Range(Initial, 10_000)));
+        //    parameter.SqlDbType = SqlDbType.VarChar;
+        //    parameter.Size = -1;
+        //    return (int)await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+        //}
 
         [Benchmark]
-        public async Task<int> TvpAsync()
+        public async Task<long> TvpAsync()
         {
             using var conn = new SqlConnection(ConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand("select count(*) from ids where id in (select id from @tvp)", conn);
+            using var cmd = new SqlCommand("select count(*) from dbo.ids i where exists (select 1 from @tvp t where t.id = i.id) option(optimize for unknown,recompile)", conn);
             var parameter = cmd.Parameters.AddWithValue("@tvp", Iterator(Initial));
             parameter.SqlDbType = SqlDbType.Structured;
             parameter.TypeName = "dbo.tvp";
+
             return (int)await cmd.ExecuteScalarAsync().ConfigureAwait(false);
 
             static IEnumerable<SqlDataRecord> Iterator(int initial)
@@ -79,30 +81,30 @@ namespace DataReaderFactory.Perf
             }
         }
 
-        [Benchmark]
-        public async Task<int> BulkAsync()
-        {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var prep = new SqlCommand("create table #t(id int not null primary key clustered)", conn);
-            await prep.ExecuteNonQueryAsync().ConfigureAwait(false);
-            using var bulk = new SqlBulkCopy(conn, SqlBulkCopyOptions.TableLock, null)
-            {
-                EnableStreaming = false,
-                BatchSize = 10_000,
-                DestinationTableName = "tempdb..#t",
-                ColumnMappings = { new(0, 0) },
-                ColumnOrderHints = { new("id", SortOrder.Ascending) }
-            };
-            await bulk.WriteToServerAsync(Builder.CreateReader(Enumerable.Range(Initial, 10_000))).ConfigureAwait(false);
-            using var cmd = new SqlCommand("select count(*) from ids where id in (select id from #t)", conn);
-            return (int)await cmd.ExecuteScalarAsync().ConfigureAwait(false);
-        }
+        //[Benchmark]
+        //public async Task<int> BulkAsync()
+        //{
+        //    using var conn = new SqlConnection(ConnectionString);
+        //    conn.Open();
+        //    using var prep = new SqlCommand("create table #t(id int not null primary key clustered)", conn);
+        //    await prep.ExecuteNonQueryAsync().ConfigureAwait(false);
+        //    using var bulk = new SqlBulkCopy(conn, SqlBulkCopyOptions.TableLock, null)
+        //    {
+        //        EnableStreaming = false,
+        //        BatchSize = 10_000,
+        //        DestinationTableName = "tempdb..#t",
+        //        ColumnMappings = { new(0, 0) },
+        //        ColumnOrderHints = { new("id", SortOrder.Ascending) }
+        //    };
+        //    await bulk.WriteToServerAsync(Builder.CreateReader(Enumerable.Range(Initial, 10_000))).ConfigureAwait(false);
+        //    using var cmd = new SqlCommand("select count(*) from #t", conn);
+        //    return (int)await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+        //}
 
         [GlobalCleanup]
         public void CleanUp()
         {
-            LocalDb?.Dispose();
+           // LocalDb?.Dispose();
             Builder?.Dispose();
         }
     }
